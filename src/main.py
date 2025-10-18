@@ -1,4 +1,4 @@
-import config
+-import config
 from bot import bot
 from db.core import init_db
 from agent.SQLAgent import SafeAgent, init_agent
