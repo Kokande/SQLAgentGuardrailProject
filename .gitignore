@@ -1,2 +1,3 @@
 /src/secret.properties
 .idea
+/src/bot_service.db
