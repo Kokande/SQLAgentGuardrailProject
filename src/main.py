@@ -1,4 +1,4 @@
--import config
+import config
 from bot import bot
 from db.core import init_db
 from agent.SQLAgent import SafeAgent, init_agent
@@ -31,7 +31,7 @@ def init_app() -> None:
     app.bot = bot.init_bot(app.cfg)
     app.dp = bot.init_dispatcher(app.agent)
 
-    logging.basicConfig(level=app.cfg.log_level, format='[%(asctime)s] (%(name)s) %(levelname)s - %(message)s')
+    logging.basicConfig(level=app.cfg.log_level, format='[%(asctime)s] (%(levelname)s) %(name)s - %(message)s')
 
 
 async def main() -> None:
