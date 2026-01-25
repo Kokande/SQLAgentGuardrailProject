@@ -62,12 +62,12 @@ MIGRATIONS = [
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_client_id ON Chats(userId);
-    """
+    """,
 ]
 
 
 # Unsafe connection strategy, temporary solution for checkpointing
-async def get_db_connection():
+def get_db_connection():
     return sqlite3.connect(SQLITE_FILE_PATH)
 
 
@@ -88,9 +88,7 @@ class DBManager:
             logger.exception(f"Failed closing the db connection: {e}")
 
 
-async def init_db(
-        mocked=True
-) -> None:
+async def init_db(mocked=True) -> None:
     async with DBManager() as connection:
         if mocked:
             await clear_db(connection)

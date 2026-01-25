@@ -30,7 +30,7 @@ async def fill_db(connection: sqlite3.Connection) -> None:
         shortest_stay=os.getenv("SHORTEST_STAY", 1),
         longest_stay=os.getenv("LONGEST_STAY"),
         min_stays=os.getenv("MIN_STAYS", 1),
-        max_stays=os.getenv("MAX_STAYS")
+        max_stays=os.getenv("MAX_STAYS"),
     )
 
     faker = Faker()
@@ -40,7 +40,9 @@ async def fill_db(connection: sqlite3.Connection) -> None:
 
 
 # Clients mock
-async def fake_clients(connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig) -> None:
+async def fake_clients(
+    connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig
+) -> None:
     cursor = connection.cursor()
 
     for _ in range(mock_cfg.client_num):
@@ -54,15 +56,17 @@ async def fake_clients(connection: sqlite3.Connection, faker: Faker, mock_cfg: M
                 faker.name(),
                 faker.phone_number(),
                 faker.email(),
-                faker.address()
-            )
+                faker.address(),
+            ),
         )
     connection.commit()
     cursor.close()
 
 
 # Pets mock
-async def fake_pets(connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig) -> None:
+async def fake_pets(
+    connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig
+) -> None:
     cursor = connection.cursor()
     cursor.execute("""SELECT clientId FROM Clients""")
     for client in cursor.fetchall():
@@ -87,46 +91,51 @@ async def fake_pets(connection: sqlite3.Connection, faker: Faker, mock_cfg: Mock
                             "Хозяева часто отдыхают на море и оставляют у нас",
                             "Не любит других животных",
                             "Любит расчёску",
-                            "Любит активные игры"
+                            "Любит активные игры",
                         ]
-                    )
-                )
+                    ),
+                ),
             )
     connection.commit()
     cursor.close()
 
 
 # Stays mock
-async def fake_stays(connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig) -> None:
+async def fake_stays(
+    connection: sqlite3.Connection, faker: Faker, mock_cfg: MockConfig
+) -> None:
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM pets")
     pets = cursor.fetchall()
-    stay_plans = ['Стандарт', 'Премиум', 'Люкс', 'Оздоровительный']
+    stay_plans = ["Стандарт", "Премиум", "Люкс", "Оздоровительный"]
 
     stays = []
     for pet in pets:
         num_stays = random.randint(mock_cfg.min_stays, mock_cfg.max_stays)
 
         for _ in range(num_stays):
-            check_in = faker.date_between(start_date='-1y', end_date='today')
+            check_in = faker.date_between(start_date="-1y", end_date="today")
             stay_duration = random.randint(1, mock_cfg.longest_stay)
             check_out = check_in + timedelta(days=stay_duration)
 
             stay = {
-                'stayId': str(uuid.uuid4()),
-                'clientId': pet[1],
-                'petId': pet[0],
-                'visit': check_in.isoformat(),
-                'leave': check_out.isoformat(),
-                'plan': random.choice(stay_plans)
+                "stayId": str(uuid.uuid4()),
+                "clientId": pet[1],
+                "petId": pet[0],
+                "visit": check_in.isoformat(),
+                "leave": check_out.isoformat(),
+                "plan": random.choice(stay_plans),
             }
             stays.append(stay)
 
     # Insert stays
-    cursor.executemany('''
+    cursor.executemany(
+        """
         INSERT INTO Stays (stayId, clientId, petId, visit, leave, plan)
         VALUES (:stayId, :clientId, :petId, :visit, :leave, :plan)
-    ''', stays)
+    """,
+        stays,
+    )
 
     connection.commit()
     cursor.close()

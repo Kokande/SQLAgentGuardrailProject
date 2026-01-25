@@ -10,13 +10,7 @@ class LLMGuardrail(BaseGuardrail):
         self._semaphore = semaphore or Semaphore()
 
     async def preprocess(self, message: str) -> GuardrailResponse:
-        return GuardrailResponse(
-            blocked=False,
-            commentary="LLMPreprocessPassed;"
-        )
+        return GuardrailResponse(blocked=False, commentary="LLMPreprocessPassed;")
 
     async def postprocess(self, message: str) -> GuardrailResponse:
-        return GuardrailResponse(
-            blocked=False,
-            commentary="LLMPostprocessPassed;"
-        )
+        return GuardrailResponse(blocked=False, commentary="LLMPostprocessPassed;")

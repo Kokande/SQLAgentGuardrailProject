@@ -5,38 +5,50 @@ from agent.SQLAgent import SafeAgent, init_agent
 
 import asyncio
 import logging
-from typing import ClassVar, Self
+from typing import ClassVar, Type
 
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 
 
+def init_env() -> None:
+    load_dotenv("configs/service.properties")
+    load_dotenv("configs/secret.properties")
+
+
 class App:
-    _instance: ClassVar[Self | None] = None
+    """
+    Contains main App objects
+    """
+
+    _initialized: ClassVar[bool] = False
     bot: ClassVar[Bot | None] = None
     dispatcher: ClassVar[Dispatcher | None] = None
-    cfg: ClassVar[config.AppConfig | None] = None
+    cfg: ClassVar[Type[config.AppConfig] | None] = None
     agent: ClassVar[SafeAgent | None] = None
 
-    def __new__(cls):
-        if cls._instance:
-            return cls._instance
-        else:
-            cls._instance = super(App, cls).__new__(cls)
-            cls.cfg = config.init_cfg()
-            cls.bot = bot.init_bot(cls.cfg)
-            cls.agent = init_agent(cls.cfg)
-            cls.dispatcher = bot.init_dispatcher(cls.agent)
+    @classmethod
+    def initialize(cls):
+        if cls._initialized:
+            return
 
-            return cls._instance
+        cls.cfg = config.init_cfg()
+        cls.bot = bot.init_bot(cls.cfg)
+        cls.agent = init_agent()
+        cls.dispatcher = bot.init_dispatcher(cls.agent)
 
 
 async def main() -> None:
+    init_env()
     await init_db()
 
-    app = App()
-    logging.basicConfig(level=app.cfg.log_level, format='[%(asctime)s] (%(levelname)s) %(name)s - %(message)s')
+    App.initialize()
+    logging.basicConfig(
+        level=App.cfg.log_level,
+        format="[%(asctime)s] (%(levelname)s) %(name)s - %(message)s",
+    )
 
-    await app.dispatcher.start_polling(app.bot)
+    await App.dispatcher.start_polling(App.bot)
 
 
 if __name__ == "__main__":
