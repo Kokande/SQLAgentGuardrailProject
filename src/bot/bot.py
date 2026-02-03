@@ -1,5 +1,5 @@
 import config
-from agent.SQLAgent import SafeAgent
+from agent import SafeAgent
 from db.core import create_session, change_guardrail, get_guardrail
 
 import logging

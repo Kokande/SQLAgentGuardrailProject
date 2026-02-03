@@ -1,7 +1,7 @@
 import config
 from bot import bot
 from db.core import init_db
-from agent.SQLAgent import SafeAgent, init_agent
+from agent import init_agent, SafeAgent
 
 import asyncio
 import logging
