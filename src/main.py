@@ -1,42 +1,62 @@
 import config
 from bot import bot
 from db.core import init_db
-from agent.SQLAgent import SafeAgent, init_agent
+from agent import init_agent, SafeAgent
+from utils.log_cfg import LOGGING_CONFIG
 
 import asyncio
 import logging
-from typing import ClassVar, Self
+import logging.config
+from typing import ClassVar, Type
 
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 
 
+logger = logging.getLogger("service")
+
+
+def init_env() -> None:
+    load_dotenv("configs/service.properties")
+    load_dotenv("configs/secret.properties")
+
+
 class App:
-    _instance: ClassVar[Self | None] = None
+    """
+    Contains main App objects
+    """
+
+    _initialized: ClassVar[bool] = False
     bot: ClassVar[Bot | None] = None
     dispatcher: ClassVar[Dispatcher | None] = None
-    cfg: ClassVar[config.AppConfig | None] = None
+    cfg: ClassVar[Type[config.AppConfig] | None] = None
     agent: ClassVar[SafeAgent | None] = None
 
-    def __new__(cls):
-        if cls._instance:
-            return cls._instance
-        else:
-            cls._instance = super(App, cls).__new__(cls)
-            cls.cfg = config.init_cfg()
-            cls.bot = bot.init_bot(cls.cfg)
-            cls.agent = init_agent(cls.cfg)
-            cls.dispatcher = bot.init_dispatcher(cls.agent)
+    @classmethod
+    def initialize(cls):
+        if cls._initialized:
+            return
 
-            return cls._instance
+        cls.cfg = config.init_cfg()
+        cls.bot = bot.init_bot(cls.cfg)
+        cls.agent = init_agent()
+        cls.dispatcher = bot.init_dispatcher(cls.agent)
 
 
 async def main() -> None:
+    init_env()
+
+    logging.config.dictConfig(LOGGING_CONFIG)
+
     await init_db()
+    logger.info("DB initialized")
 
-    app = App()
-    logging.basicConfig(level=app.cfg.log_level, format='[%(asctime)s] (%(levelname)s) %(name)s - %(message)s')
+    App.initialize()
 
-    await app.dispatcher.start_polling(app.bot)
+    logger.info("App initialized")
+    logging.basicConfig(level=App.cfg.log_level)
+
+    await App.dispatcher.start_polling(App.bot)
 
 
 if __name__ == "__main__":

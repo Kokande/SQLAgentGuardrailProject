@@ -15,3 +15,7 @@ class BaseGuardrail(ABC):
     @abstractmethod
     async def postprocess(self, message: str) -> GuardrailResponse:
         pass
+
+    @abstractmethod
+    def __repr__(self) -> str:
+        pass

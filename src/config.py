@@ -1,37 +1,37 @@
 import os
 
-from dotenv import load_dotenv
-from pydantic import BaseModel
+from typing import Type, ClassVar
 
 
-class LLMConfig(BaseModel):
-    token: str
-    base_url: str
-    auth_url: str
-    model: str
-    scope: str
-    num_streams: int
+class AppConfig:
+    log_level: ClassVar[str] = "DEBUG"
+    bot_token: ClassVar[str] = ""
+    _loaded: ClassVar[bool] = False
+
+    @classmethod
+    def load(cls):
+        if cls._loaded:
+            return
+
+        cls.log_level = os.getenv("LOG_LEVEL", cls.log_level)
+        cls.bot_token = os.getenv("TELEGRAM_API_KEY", cls.bot_token)
+        cls._loaded = True
+
+        cls.validate()
+
+    @classmethod
+    def validate(cls):
+        if not cls.bot_token:
+            raise Exception(
+                "Could not retrieve TELEGRAM_API_KEY from environment variables"
+            )
 
 
-class AppConfig(BaseModel):
-    log_level: str
-    bot_token: str
-    llm: LLMConfig
+def init_cfg() -> Type[AppConfig]:
+    """
+    Initializes app configuration variables
+    :return: AppConfig
+    """
+    AppConfig.load()
 
-
-def init_cfg() -> AppConfig:
-    load_dotenv("configs/service.properties")
-    load_dotenv("configs/secret.properties")
-
-    return AppConfig(
-        log_level=os.getenv("LOG_LEVEL"),
-        bot_token=os.getenv("TELEGRAM_API_KEY"),
-        llm=LLMConfig(
-            token=os.getenv("LLM_API_KEY"),
-            base_url=os.getenv("LLM_BASE_URL"),
-            auth_url=os.getenv("LLM_AUTH_URL"),
-            model=os.getenv("LLM_MODEL"),
-            scope=os.getenv("LLM_SCOPE"),
-            num_streams=os.getenv("LLM_STREAMS")
-        )
-    )
+    return AppConfig

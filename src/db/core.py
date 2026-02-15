@@ -1,13 +1,13 @@
-import logging
-
 from db.mock import fill_db, clear_db
 
 import uuid
+import logging
+from contextlib import asynccontextmanager
 
-import sqlite3
+import aiosqlite
 
 SQLITE_FILE_PATH = "bot_service.db"
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("database")
 
 MIGRATIONS = [
     # Service functional
@@ -62,54 +62,51 @@ MIGRATIONS = [
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_client_id ON Chats(userId);
-    """
+    """,
 ]
 
 
 # Unsafe connection strategy, temporary solution for checkpointing
-async def get_db_connection():
-    return sqlite3.connect(SQLITE_FILE_PATH)
+@asynccontextmanager
+async def connect() -> aiosqlite.Connection:
+    try:
+        async with aiosqlite.connect(SQLITE_FILE_PATH) as connection:
+            try:
+                logger.debug("Given connection")
+                yield connection
+            finally:
+                logger.debug("Closed connection")
+    except Exception as e:
+        logger.exception(f"Trouble getting the connection: {e}")
 
 
-class DBManager:
-    connection: sqlite3.Connection
-
-    async def __aenter__(self) -> sqlite3.Connection:
-        try:
-            self.connection = sqlite3.connect(SQLITE_FILE_PATH)
-            return self.connection
-        except Exception as e:
-            logger.exception(f"Got exception trying to get db connection: {e}")
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        try:
-            self.connection.close()
-        except Exception as e:
-            logger.exception(f"Failed closing the db connection: {e}")
-
-
-async def init_db(
-        mocked=True
-) -> None:
-    async with DBManager() as connection:
+async def init_db(mocked=True) -> None:
+    async with connect() as connection:
         if mocked:
             await clear_db(connection)
+            logger.debug("DB cleared for mocks")
 
-        cursor = connection.cursor()
+        cursor = await connection.cursor()
         for migration in MIGRATIONS:
-            cursor.execute(migration)
-        connection.commit()
-        cursor.close()
+            await cursor.execute(migration)
+        await connection.commit()
+        await cursor.close()
 
         if mocked:
             await fill_db(connection)
 
 
 async def create_session(user_id: int) -> None:
-    async with DBManager() as connection:
-        cursor = connection.cursor()
+    async with connect() as connection:
+        cursor = await connection.cursor()
         session_id = uuid.uuid4().hex
-        cursor.execute(
+        await cursor.execute(
+            f"""
+            DELETE FROM Chats
+            WHERE userId = '{user_id}'
+            """
+        )
+        await cursor.execute(
             f"""
             INSERT INTO Chats (userId, sessionId, guardrailType)
             VALUES ({user_id}, '{session_id}', 'large_language_model')
@@ -118,36 +115,36 @@ async def create_session(user_id: int) -> None:
                 guardrailType = excluded.guardrailType
             """,
         )
-        connection.commit()
-        cursor.close()
+        await connection.commit()
+        await cursor.close()
 
 
 async def change_guardrail(user_id: int, gr_type: str) -> None:
-    async with DBManager() as connection:
-        cursor = connection.cursor()
-        cursor.execute(
+    async with connect() as connection:
+        cursor = await connection.cursor()
+        await cursor.execute(
             f"""
             UPDATE Chats
             SET guardrailType = '{gr_type}'
             WHERE userId = {user_id}
             """,
         )
-        connection.commit()
-        cursor.close()
+        await connection.commit()
+        await cursor.close()
 
 
 async def get_guardrail(user_id: int) -> str:
-    async with DBManager() as connection:
-        cursor = connection.cursor()
-        cursor.execute(
+    async with connect() as connection:
+        cursor = await connection.cursor()
+        await cursor.execute(
             f"""
             SELECT guardrailType
             FROM Chats
             WHERE userId = {user_id}
             """
         )
-        res = cursor.fetchall()
-        cursor.close()
+        res = list(await cursor.fetchall())
+        await cursor.close()
 
     logger.debug(f"Got guardrail '{res}' for user '{user_id}'")
     return res[0][0]
