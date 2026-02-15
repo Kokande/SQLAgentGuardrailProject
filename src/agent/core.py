@@ -1,14 +1,15 @@
 from .config import LLMConfig
 
-from asyncio import Semaphore
+import os
 from typing import Type
+from asyncio import Semaphore
 from abc import ABC, abstractmethod
 
 from langchain_gigachat import GigaChat
 from langchain_core.messages import SystemMessage
 
 
-LLM_SEMAPHORE: Semaphore = Semaphore(0)
+LLM_SEMAPHORE: Semaphore = Semaphore(int(os.getenv("LLM_STREAMS", "1")))
 
 
 def get_model(cfg: Type[LLMConfig]) -> GigaChat:
@@ -33,7 +34,7 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    async def ainvoke(self, message: str) -> str:
+    async def ainvoke(self, message: str, configurable: dict) -> str:
         pass
 
 

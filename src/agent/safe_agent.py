@@ -16,7 +16,7 @@ class SafeAgent:
 
     def __init__(self):
         self.agent = SQLAgent()
-        self.logger = logging.getLogger("guardrailed_agent")
+        self.logger = logging.getLogger("agent.guardrail")
         self.init_guardrails()
 
     def init_guardrails(self):
@@ -32,7 +32,14 @@ class SafeAgent:
             ],
         }
 
-    async def ainvoke(self, message: str, guardrail_type: str) -> str:
+    async def ainvoke(
+        self, message: str, session_id: str, guardrail_type: str = None
+    ) -> str:
+        if guardrail_type is None:
+            raise NotImplementedError(
+                "In-runtime guardrail selection not implemented :("
+            )
+
         response = ""
         if guardrail_type not in self.guardrails:
             self.logger.warning(
@@ -43,6 +50,10 @@ class SafeAgent:
             for mechanism in self.guardrails[guardrail_type]:
                 try:
                     preprocess = await mechanism.preprocess(message)
+
+                    self.logger.info(
+                        f"{mechanism} pre-check passed for message '{message}'"
+                    )
                 except Exception as e:
                     self.logger.warning(
                         f"Failed the {guardrail_type} check: {e}. Returning the prepared message"
@@ -56,11 +67,15 @@ class SafeAgent:
                         f"Caused by {mechanism} "
                         f"with message: {preprocess.commentary}"
                     )
+
                     return preprocess.commentary
                 else:
-                    response += preprocess.commentary
+                    # response += preprocess.commentary + "\n"
+                    pass
 
-            agent_response = await self.agent.ainvoke(message)
+            agent_response = await self.agent.ainvoke(
+                message, configurable={"configurable": {"thread_id": session_id}}
+            )
             response += agent_response
 
             for mechanism in self.guardrails[guardrail_type]:
@@ -71,8 +86,12 @@ class SafeAgent:
                         f"Caused by {mechanism} "
                         f"with message: {postprocess.commentary}"
                     )
+
                     return postprocess.commentary
                 else:
-                    response += postprocess.commentary
+                    # response += postprocess.commentary
+                    self.logger.info(
+                        f"{mechanism} post-check passed for message '{response}'"
+                    )
 
         return response

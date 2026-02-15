@@ -85,8 +85,11 @@ def init_dispatcher(agent: SafeAgent) -> Dispatcher:
     @dp.message()
     async def message(message: Message) -> None:
         answer = await agent.ainvoke(
-            message.text, guardrail_type=await get_guardrail(message.from_user.id)
+            message.text,
+            str(message.from_user.id),
+            guardrail_type=await get_guardrail(message.from_user.id),
         )
+        # todo Make proper sessions
         await message.answer(answer, reply_markup=main_keyboard)
 
     class LoggingMiddleware(BaseMiddleware):

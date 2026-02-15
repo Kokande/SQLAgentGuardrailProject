@@ -1,7 +1,6 @@
-from db.core import get_db_connection
+import aiosqlite
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-from langgraph.checkpoint.sqlite import SqliteSaver
 
-
-def get_sql_checkpointer() -> SqliteSaver:
-    return SqliteSaver(get_db_connection())
+def get_sql_checkpointer() -> AsyncSqliteSaver:
+    return AsyncSqliteSaver(aiosqlite.connect("agent_memory.db"))

@@ -2,13 +2,18 @@ import config
 from bot import bot
 from db.core import init_db
 from agent import init_agent, SafeAgent
+from utils.log_cfg import LOGGING_CONFIG
 
 import asyncio
 import logging
+import logging.config
 from typing import ClassVar, Type
 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
+
+
+logger = logging.getLogger("service")
 
 
 def init_env() -> None:
@@ -40,13 +45,16 @@ class App:
 
 async def main() -> None:
     init_env()
+
+    logging.config.dictConfig(LOGGING_CONFIG)
+
     await init_db()
+    logger.info("DB initialized")
 
     App.initialize()
-    logging.basicConfig(
-        level=App.cfg.log_level,
-        format="[%(asctime)s] (%(levelname)s) %(name)s - %(message)s",
-    )
+
+    logger.info("App initialized")
+    logging.basicConfig(level=App.cfg.log_level)
 
     await App.dispatcher.start_polling(App.bot)
 

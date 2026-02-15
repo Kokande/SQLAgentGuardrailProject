@@ -1,5 +1,6 @@
 from .config import LLMConfig
 from .core import Agent, LLM_SEMAPHORE, get_model
+from agent.tools.sql_tool import SqlTool
 from agent.memory.checkpointer import get_sql_checkpointer
 
 import logging
@@ -21,6 +22,7 @@ class SQLAgent(Agent):
     """
 
     _instance: ClassVar[Self | None] = None
+    _tools: List = [SqlTool()]
 
     llm: BaseChatModel
     recursion_limit: int
@@ -35,9 +37,20 @@ class SQLAgent(Agent):
     def _system_prompt(self) -> SystemMessage:
         return SystemMessage(
             content="""
-            Ты агент по работе с базой данных салона для домашних животных
-            ...
-            """  # todo Make a proper prompt
+            Ты - агент чат-бот по работе с базой данных салона для домашних животных.
+            Помогай пользователю в работе с БД.
+
+            Пользователь - простой человек, старайся не общаться с ним кодом.
+
+            Не используй markdown-форматирование.
+            Вместо - используй форматирование социальной сети Telegram:
+            **жирный**
+            __курсив__
+            `код`
+            ~~перечеркнутый~~
+            ```блок кода```
+            ||скрытый текст||
+            """
         )
 
     def __new__(cls):
@@ -53,7 +66,7 @@ class SQLAgent(Agent):
         self.logger = logging.getLogger("agent")
         self.recursion_limit = 25
         self.llm = get_model(LLMConfig)
-        self.tool_node = ToolNode([])
+        self.tool_node = ToolNode(self._tools)
         self.checkpointer = get_sql_checkpointer()
         self._build_agent()
 
@@ -84,11 +97,16 @@ class SQLAgent(Agent):
             :param state: current state of the agent
             :return: message from LLM
             """
+            self.logger.debug(f"Entered llm_node with state: {state}")
+
             llm_model = get_model(LLMConfig).bind_tools(self._tools)
             async with LLM_SEMAPHORE:
                 llm_response = await llm_model.ainvoke(
                     [self._system_prompt] + state["messages"]
                 )
+
+            self.logger.info(f"LLM response: {llm_response}")
+
             return {"messages": llm_response}
 
         async def postprocess(state: AgentState) -> dict:
@@ -118,20 +136,16 @@ class SQLAgent(Agent):
         workflow.add_node("tools", self.tool_node)
 
         workflow.add_edge(START, "preprocess")
-
         workflow.add_edge("preprocess", "llm_node")
         workflow.add_conditional_edges(
             "llm_node", should_continue, ["tools", "postprocess"]
         )
-        workflow.add_edge("llm_node", "postprocess")
-
+        workflow.add_edge("tools", "llm_node")
         workflow.add_edge("postprocess", END)
-        # todo Finish the graph
 
         self.agent = workflow.compile(checkpointer=self.checkpointer)
 
-    async def ainvoke(self, message: str) -> str:
-        # response = await self.agent.ainvoke(message)
-        response = {"reply": "agentmessage;"}
+    async def ainvoke(self, message: str, configurable: dict) -> str:
+        response = await self.agent.ainvoke({"message": message}, config=configurable)
 
         return response["reply"]

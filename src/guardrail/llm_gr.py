@@ -9,6 +9,9 @@ class LLMGuardrail(BaseGuardrail):
     def __init__(self, semaphore: Semaphore = None):
         self._semaphore = semaphore or Semaphore()
 
+    def __repr__(self) -> str:
+        return "LLMGuardrail"
+
     async def preprocess(self, message: str) -> GuardrailResponse:
         return GuardrailResponse(blocked=False, commentary="LLMPreprocessPassed;")
 
