@@ -3,3 +3,5 @@
 /src/bot_service.db
 /.ruff_cache/
 /src/agent_memory.db
+/src/agent_memory.db-shm
+/src/agent_memory.db-wal
