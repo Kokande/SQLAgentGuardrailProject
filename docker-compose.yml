@@ -1,0 +1,11 @@
+services:
+  github-bot:
+    build: .
+    container_name: sql-agent-bot
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"

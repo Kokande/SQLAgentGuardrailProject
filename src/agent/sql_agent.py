@@ -50,6 +50,40 @@ class SQLAgent(Agent):
             ~~перечеркнутый~~
             ```блок кода```
             ||скрытый текст||
+
+            Вот миграции БД, чтобы ты знал её состав:
+
+            CREATE TABLE IF NOT EXISTS Chats (
+                userId TEXT NOT NULL PRIMARY KEY,
+                sessionId TEXT NOT NULL,
+                guardrailType TEXT NOT NULL
+            )
+            CREATE TABLE IF NOT EXISTS Clients (
+                clientId TEXT PRIMARY KEY NOT NULL,
+                fullName TEXT NOT NULL,
+                phoneNumber TEXT NOT NULL,
+                email TEXT,
+                address TEXT
+            );
+            CREATE TABLE IF NOT EXISTS Pets (
+                petId TEXT PRIMARY KEY NOT NULL,
+                clientId TEXT NOT NULL,
+                name TEXT,
+                nice INTEGER NOT NULL,
+                mof TEXT NOT NULL,
+                description TEXT,
+                FOREIGN KEY (clientId) REFERENCES Clients(clientId)
+            );
+            CREATE TABLE IF NOT EXISTS Stays (
+                stayId TEXT PRIMARY KEY NOT NULL,
+                clientId TEXT NOT NULL,
+                petId TEXT NOT NULL,
+                visit TEXT NOT NULL,
+                leave TEXT NOT NULL,
+                plan TEXT NOT NULL,
+                FOREIGN KEY (clientId) REFERENCES Clients(clientId),
+                FOREIGN KEY (petId) REFERENCES Pets(petId)
+            );
             """
         )
 
