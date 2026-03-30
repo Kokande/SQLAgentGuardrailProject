@@ -2,7 +2,7 @@ aiogram
 aiosqlite
 dotenv
 Faker
-gigachain
+langchain-gigachat
 gigachat
 httpx
 langchain-core==0.3.79
