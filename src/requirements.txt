@@ -14,8 +14,8 @@ dill==0.3.8
 dotenv==0.9.9
 Faker==37.11.0
 frozenlist==1.8.0
-gigachain==0.2.16
-gigachain-core==0.2.38.post2
+gigachain
+gigachain-core-lc
 gigachain-text-splitters==0.2.4
 gigachat==0.1.42.post2
 gitdb==4.0.11
@@ -30,14 +30,13 @@ jsonpatch==1.33
 jsonpointer==3.0.0
 jupyterlab-lsp==5.1.0
 langchain-core==0.3.79
-langchain-gigachat==0.3.12
+langchain-gigachat
 langfuse==2.60.10
 langgraph==1.0.0
 langgraph-checkpoint==2.1.2
 langgraph-checkpoint-sqlite==2.0.11
 langgraph-prebuilt==1.0.0
 langgraph-sdk==0.2.9
-langsmith==0.4.37
 magic-filter==1.0.12
 multidict==6.7.0
 numpy==1.26.4
