@@ -5,3 +5,5 @@
 /src/agent_memory.db
 /src/agent_memory.db-shm
 /src/agent_memory.db-wal
+
+**/__pycache__

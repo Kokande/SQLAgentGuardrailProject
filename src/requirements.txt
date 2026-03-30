@@ -29,7 +29,7 @@ idna==3.11
 jsonpatch==1.33
 jsonpointer==3.0.0
 jupyterlab-lsp==5.1.0
-langchain-core==0.3.79
+langchain-core
 langchain-gigachat
 langfuse==2.60.10
 langgraph==1.0.0
