@@ -5,7 +5,7 @@ Faker
 gigachain
 gigachat
 httpx
-langchain-core
+langchain-core==0.3.79
 langchain-gigachat
 langgraph
 langgraph-checkpoint
