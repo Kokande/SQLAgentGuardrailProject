@@ -7,3 +7,10 @@
 /src/agent_memory.db-wal
 
 **/__pycache__
+
+/data_science/dataset/origin/**
+/data_science/dataset/translated/**
+/data_science/train_state/checkpoint**
+
+/data_science/train_state/final_model/model.safetensors
+/data_science/train_state/final_model/tokenizer.json

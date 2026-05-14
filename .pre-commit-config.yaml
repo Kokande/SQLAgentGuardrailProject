@@ -10,5 +10,6 @@ repos:
     rev: v0.14.14
     hooks:
     -   id: ruff-check
-        args: [ --fix ]
+        args: [--fix, "--exclude=./data_science"]
     -   id: ruff-format
+        args: ["--exclude=./data_science"]
