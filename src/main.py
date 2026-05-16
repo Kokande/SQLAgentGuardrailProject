@@ -2,8 +2,9 @@ import config
 from bot import bot
 from db.core import init_db
 from agent import init_agent, SafeAgent
-from utils.log_cfg import LOGGING_CONFIG
+from utils.log_cfg import LOGGING_CONFIG, setup_file_logging
 
+import os
 import asyncio
 import logging
 import logging.config
@@ -47,6 +48,7 @@ async def main() -> None:
     init_env()
 
     logging.config.dictConfig(LOGGING_CONFIG)
+    setup_file_logging(os.getenv("LOG_DIR", "logs"))
 
     await init_db()
     logger.info("DB initialized")

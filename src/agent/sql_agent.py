@@ -1,9 +1,11 @@
 from .config import LLMConfig
-from .core import Agent, LLM_SEMAPHORE, get_model
+from .core import Agent, LLM_SEMAPHORE, CURRENT_THREAD_ID, get_model
 from agent.tools.sql_tool import SqlTool
 from agent.memory.checkpointer import get_sql_checkpointer
 
+import json as _json
 import logging
+from datetime import datetime, timezone
 from typing import TypedDict, Annotated, ClassVar, Self, List
 
 from langgraph.graph import END, START
@@ -14,6 +16,19 @@ from langchain.chat_models.base import BaseChatModel
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import StateGraph, CompiledStateGraph
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+
+_comm_logger = logging.getLogger("agent.communication")
+
+
+def _log_comm(thread: str, msg_type: str, **fields) -> None:
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread": thread,
+        "type": msg_type,
+        **fields,
+    }
+    _comm_logger.info(_json.dumps(entry, ensure_ascii=False))
 
 
 class SQLAgent(Agent):
@@ -37,50 +52,47 @@ class SQLAgent(Agent):
     def _system_prompt(self) -> SystemMessage:
         return SystemMessage(
             content="""
-            Ты - агент чат-бот по работе с базой данных салона для домашних животных.
-            Помогай пользователю в работе с БД.
+            Ты — дружелюбный помощник зоосалона для домашних животных.
 
-            Пользователь - простой человек, старайся не общаться с ним кодом.
+            ВАЖНЫЕ ПРАВИЛА:
+            - Никогда не упоминай базы данных, SQL, таблицы, запросы или технические детали.
+            - Говори как заботливый администратор салона, а не как программа.
+            - Если для поиска нужны данные клиента (имя или телефон) — вежливо попроси их уточнить.
 
-            Не используй markdown-форматирование.
-            Вместо - используй форматирование социальной сети Telegram:
-            **жирный**
-            __курсив__
-            `код`
-            ~~перечеркнутый~~
-            ```блок кода```
-            ||скрытый текст||
+            ФОРМАТИРОВАНИЕ (для Telegram, без стандартного markdown):
+            - Используй **жирный** для имён и дат.
+            - Списки оформляй через "•" или нумерацию, по одному пункту на строку.
+            - Если результатов много (5+) — сначала дай краткую сводку ("У вас 3 предстоящих визита:"),
+              затем перечисли самые важные. Не выводи длинные списки одним блоком.
+            - Не показывай технические идентификаторы (clientId, stayId и т.д.).
+            - Отвечай кратко и понятно — сообщение должно хорошо читаться на экране телефона.
+            - Не используй стандартный markdown. Форматирование Telegram:
+              **жирный**, __курсив__, ~~зачёркнутый~~, ||скрытый||
 
-            Вот миграции БД, чтобы ты знал её состав:
-
-            CREATE TABLE IF NOT EXISTS Chats (
-                userId TEXT NOT NULL PRIMARY KEY,
-                sessionId TEXT NOT NULL,
-                guardrailType TEXT NOT NULL
-            )
+            СПРАВОЧНИК (только для твоего понимания структуры, пользователю не показывай):
             CREATE TABLE IF NOT EXISTS Clients (
-                clientId TEXT PRIMARY KEY NOT NULL,
-                fullName TEXT NOT NULL,
-                phoneNumber TEXT NOT NULL,
+                clientId TEXT PRIMARY KEY,  -- внутренний ID, не показывай
+                fullName TEXT,              -- полное имя клиента
+                phoneNumber TEXT,           -- номер телефона
                 email TEXT,
                 address TEXT
             );
             CREATE TABLE IF NOT EXISTS Pets (
-                petId TEXT PRIMARY KEY NOT NULL,
-                clientId TEXT NOT NULL,
-                name TEXT,
-                nice INTEGER NOT NULL,
-                mof TEXT NOT NULL,
-                description TEXT,
+                petId TEXT PRIMARY KEY,     -- внутренний ID, не показывай
+                clientId TEXT,
+                name TEXT,                  -- кличка питомца
+                nice INTEGER,               -- 1 = дружелюбный, 0 = агрессивный
+                mof TEXT,                   -- пол: male / female
+                description TEXT,           -- описание, особенности
                 FOREIGN KEY (clientId) REFERENCES Clients(clientId)
             );
             CREATE TABLE IF NOT EXISTS Stays (
-                stayId TEXT PRIMARY KEY NOT NULL,
-                clientId TEXT NOT NULL,
-                petId TEXT NOT NULL,
-                visit TEXT NOT NULL,
-                leave TEXT NOT NULL,
-                plan TEXT NOT NULL,
+                stayId TEXT PRIMARY KEY,    -- внутренний ID, не показывай
+                clientId TEXT,
+                petId TEXT,
+                visit TEXT,                 -- дата заезда (начало визита)
+                leave TEXT,                 -- дата выезда (конец визита)
+                plan TEXT,                  -- запланированные процедуры / услуги
                 FOREIGN KEY (clientId) REFERENCES Clients(clientId),
                 FOREIGN KEY (petId) REFERENCES Pets(petId)
             );
@@ -117,12 +129,15 @@ class SQLAgent(Agent):
         class AgentOutputSchema(TypedDict):
             reply: str
 
-        async def preprocess(state: AgentState) -> dict:
+        async def preprocess(state: AgentState, config: RunnableConfig) -> dict:
             """
             Node made for initializing agent interaction
             :param state: current state of the agent
             :return: post-init state
             """
+            thread_id = config.get("configurable", {}).get("thread_id", "unknown")
+            CURRENT_THREAD_ID.set(thread_id)
+            _log_comm(thread_id, "user_message", content=state["message"])
             return {"messages": [HumanMessage(content=state["message"])]}
 
         async def llm_node(state: AgentState) -> dict:
@@ -131,15 +146,27 @@ class SQLAgent(Agent):
             :param state: current state of the agent
             :return: message from LLM
             """
+            thread_id = CURRENT_THREAD_ID.get("unknown")
             self.logger.debug(f"Entered llm_node with state: {state}")
 
-            llm_model = get_model(LLMConfig).bind_tools(self._tools)
+            llm_model = self.llm.bind_tools(self._tools)
             async with LLM_SEMAPHORE:
                 llm_response = await llm_model.ainvoke(
                     [self._system_prompt] + state["messages"]
                 )
 
             self.logger.info(f"LLM response: {llm_response}")
+
+            if llm_response.tool_calls:
+                for tc in llm_response.tool_calls:
+                    _log_comm(
+                        thread_id,
+                        "tool_call",
+                        tool_name=tc["name"],
+                        tool_input=tc["args"],
+                    )
+            else:
+                _log_comm(thread_id, "ai_message", content=llm_response.content)
 
             return {"messages": llm_response}
 

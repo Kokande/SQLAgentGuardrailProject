@@ -10,6 +10,7 @@ class LLMConfig:
     model: ClassVar[str] = "GIGACHAT-2-MAX"
     scope: ClassVar[str] = "GIGACHAT_API_PERS"
     num_streams: ClassVar[int] = 1
+    verify_ssl: ClassVar[bool] = False
 
     @classmethod
     def load(cls):
@@ -22,6 +23,11 @@ class LLMConfig:
         cls.model = os.getenv("LLM_MODEL", cls.model)
         cls.scope = os.getenv("LLM_SCOPE", cls.scope)
         cls.num_streams = int(os.getenv("LLM_STREAMS", cls.num_streams))
+        cls.verify_ssl = os.getenv("LLM_VERIFY_SSL", "false").lower() not in (
+            "0",
+            "false",
+            "no",
+        )
         cls._loaded = True
 
         cls.validate()
