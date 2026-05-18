@@ -3,9 +3,21 @@ services:
     build: .
     container_name: sql-agent-bot
     restart: unless-stopped
+    # PyTorch uses /dev/shm for native tensor allocation; Docker's default 64 MB is not enough
+    shm_size: '256m'
     ports:
       - "0.0.0.0:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
       - "8000"
+    environment:
+      - TOKENIZERS_PARALLELISM=false
+      - OMP_NUM_THREADS=1
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2g
+        reservations:
+          memory: 512m

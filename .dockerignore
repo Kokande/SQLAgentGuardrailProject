@@ -1,0 +1,21 @@
+.git
+.claude
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+
+# Training checkpoints contain full model weights (~540 MB each) — only final_model is needed
+data_science/train_state/checkpoint-*/
+
+# Raw training data — not needed at runtime
+data_science/dataset/
+
+# Training and translation scripts — not needed at runtime
+data_science/*.py
+data_science/requirements.txt
+
+# Dev/docs
+materials/
+tests/
