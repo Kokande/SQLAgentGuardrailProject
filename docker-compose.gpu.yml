@@ -1,0 +1,27 @@
+# GPU override — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#
+# Prerequisites on the host:
+#   - nvidia-container-toolkit installed and configured
+#   - nvidia-smi shows available GPU(s)
+#
+# The build arg switches torch to the CUDA 12.1 index; the model code
+# selects cuda:0 automatically via torch.cuda.is_available().
+
+services:
+  github-bot:
+    build:
+      context: .
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cu121
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4g
+        reservations:
+          memory: 1g
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,6 +1,7 @@
 from .config import LLMConfig
 
 import os
+import contextvars
 from typing import Type
 from asyncio import Semaphore
 from abc import ABC, abstractmethod
@@ -10,6 +11,9 @@ from langchain_core.messages import SystemMessage
 
 
 LLM_SEMAPHORE: Semaphore = Semaphore(int(os.getenv("LLM_STREAMS", "1")))
+CURRENT_THREAD_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "thread_id", default=None
+)
 
 
 def get_model(cfg: Type[LLMConfig]) -> GigaChat:
@@ -19,7 +23,7 @@ def get_model(cfg: Type[LLMConfig]) -> GigaChat:
         model=cfg.model,
         scope=cfg.scope,
         credentials=cfg.token,
-        verify_ssl_certs=False,
+        verify_ssl_certs=cfg.verify_ssl,
     )
 
 

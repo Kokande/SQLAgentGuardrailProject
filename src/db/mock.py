@@ -163,7 +163,7 @@ async def fill_db(connection: aiosqlite.Connection) -> None:
     dotenv.load_dotenv("configs/mock.properties")
     MockConfig.load()
 
-    faker = Faker()
+    faker = Faker("ru_RU")
 
     await fake_clients(connection, faker)
     await fake_pets(connection, faker)

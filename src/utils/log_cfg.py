@@ -1,3 +1,6 @@
+import os
+import logging
+
 default_logging_setup = {"handlers": ["console"], "level": "DEBUG", "propagate": False}
 
 loggers = {
@@ -8,6 +11,23 @@ loggers = {
     "aiogram": default_logging_setup,
     "agent.guardrail": default_logging_setup,
 }
+
+
+def setup_file_logging(log_dir: str = "logs") -> None:
+    os.makedirs(log_dir, exist_ok=True)
+    plain = logging.Formatter("%(message)s")
+
+    for logger_name, filename in (
+        ("agent.communication", "agent_communication.jsonl"),
+        ("agent.guardrail_reactions", "guardrail.jsonl"),
+    ):
+        lg = logging.getLogger(logger_name)
+        lg.setLevel(logging.INFO)
+        lg.propagate = False
+        fh = logging.FileHandler(os.path.join(log_dir, filename), encoding="utf-8")
+        fh.setFormatter(plain)
+        lg.addHandler(fh)
+
 
 LOGGING_CONFIG = {
     "version": 1,

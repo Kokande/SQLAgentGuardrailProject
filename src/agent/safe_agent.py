@@ -2,8 +2,27 @@ import guardrail
 from .sql_agent import SQLAgent
 from .core import LLM_SEMAPHORE
 
+import json as _json
 import logging
+from datetime import datetime, timezone
 from typing import Dict, List
+
+_guardrail_logger = logging.getLogger("agent.guardrail_reactions")
+
+
+def _log_guardrail(
+    thread: str, name: str, phase: str, analyzed: str, blocked: bool, details: str
+) -> None:
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread": thread,
+        "guardrail_name": name,
+        "phase": phase,
+        "analyzed_message": analyzed,
+        "verdict": "BLOCKED" if blocked else "PASSED",
+        "details": details,
+    }
+    _guardrail_logger.info(_json.dumps(entry, ensure_ascii=False))
 
 
 class SafeAgent:
@@ -36,20 +55,29 @@ class SafeAgent:
         self, message: str, session_id: str, guardrail_type: str = None
     ) -> str:
         if guardrail_type is None:
-            raise NotImplementedError(
-                "In-runtime guardrail selection not implemented :("
-            )
+            self.logger.warning("guardrail_type not provided; defaulting to 'disable'.")
+            guardrail_type = "disable"
 
         response = ""
         if guardrail_type not in self.guardrails:
             self.logger.warning(
                 f"No such guardrail: '{guardrail_type}'. Using 'disable'."
             )
-            response = await self.agent.ainvoke(message)
+            response = await self.agent.ainvoke(
+                message, configurable={"configurable": {"thread_id": session_id}}
+            )
         else:
             for mechanism in self.guardrails[guardrail_type]:
                 try:
                     preprocess = await mechanism.preprocess(message)
+                    _log_guardrail(
+                        session_id,
+                        type(mechanism).__name__,
+                        "preprocess",
+                        message,
+                        preprocess.blocked,
+                        preprocess.commentary,
+                    )
 
                     self.logger.info(
                         f"{mechanism} pre-check passed for message '{message}'"
@@ -79,7 +107,15 @@ class SafeAgent:
             response += agent_response
 
             for mechanism in self.guardrails[guardrail_type]:
-                postprocess = await mechanism.preprocess(agent_response)
+                postprocess = await mechanism.postprocess(agent_response)
+                _log_guardrail(
+                    session_id,
+                    type(mechanism).__name__,
+                    "postprocess",
+                    agent_response,
+                    postprocess.blocked,
+                    postprocess.commentary,
+                )
                 if postprocess.blocked:
                     self.logger.info(
                         f"Blocked message: {message}. "

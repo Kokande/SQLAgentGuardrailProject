@@ -66,18 +66,16 @@ MIGRATIONS = [
 ]
 
 
-# Unsafe connection strategy, temporary solution for checkpointing
 @asynccontextmanager
 async def connect() -> aiosqlite.Connection:
     try:
         async with aiosqlite.connect(SQLITE_FILE_PATH) as connection:
-            try:
-                logger.debug("Given connection")
-                yield connection
-            finally:
-                logger.debug("Closed connection")
+            logger.debug("Given connection")
+            yield connection
+            logger.debug("Closed connection")
     except Exception as e:
         logger.exception(f"Trouble getting the connection: {e}")
+        raise
 
 
 async def init_db(mocked=True) -> None:
@@ -101,19 +99,14 @@ async def create_session(user_id: int) -> None:
         cursor = await connection.cursor()
         session_id = uuid.uuid4().hex
         await cursor.execute(
-            f"""
-            DELETE FROM Chats
-            WHERE userId = '{user_id}'
             """
-        )
-        await cursor.execute(
-            f"""
             INSERT INTO Chats (userId, sessionId, guardrailType)
-            VALUES ({user_id}, '{session_id}', 'large_language_model')
+            VALUES (?, ?, 'large_language_model')
             ON CONFLICT (userId) DO UPDATE SET
-                sessionId = '{session_id}',
+                sessionId = excluded.sessionId,
                 guardrailType = excluded.guardrailType
             """,
+            (str(user_id), session_id),
         )
         await connection.commit()
         await cursor.close()
@@ -123,28 +116,34 @@ async def change_guardrail(user_id: int, gr_type: str) -> None:
     async with connect() as connection:
         cursor = await connection.cursor()
         await cursor.execute(
-            f"""
-            UPDATE Chats
-            SET guardrailType = '{gr_type}'
-            WHERE userId = {user_id}
-            """,
+            "UPDATE Chats SET guardrailType = ? WHERE userId = ?",
+            (gr_type, str(user_id)),
         )
         await connection.commit()
         await cursor.close()
+
+
+async def has_session(user_id: int) -> bool:
+    async with connect() as connection:
+        cursor = await connection.cursor()
+        await cursor.execute(
+            "SELECT 1 FROM Chats WHERE userId = ?",
+            (str(user_id),),
+        )
+        res = await cursor.fetchone()
+        await cursor.close()
+    return res is not None
 
 
 async def get_guardrail(user_id: int) -> str:
     async with connect() as connection:
         cursor = await connection.cursor()
         await cursor.execute(
-            f"""
-            SELECT guardrailType
-            FROM Chats
-            WHERE userId = {user_id}
-            """
+            "SELECT guardrailType FROM Chats WHERE userId = ?",
+            (str(user_id),),
         )
         res = list(await cursor.fetchall())
         await cursor.close()
 
     logger.debug(f"Got guardrail '{res}' for user '{user_id}'")
-    return res[0][0]
+    return res[0][0] if res else "disable"

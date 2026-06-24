@@ -1,6 +1,6 @@
 import config
 from agent import SafeAgent
-from db.core import create_session, change_guardrail, get_guardrail
+from db.core import create_session, change_guardrail, get_guardrail, has_session
 
 import logging
 from typing import Callable, Any, Dict, Awaitable, Type
@@ -8,6 +8,7 @@ from typing import Callable, Any, Dict, Awaitable, Type
 from aiogram import BaseMiddleware
 from aiogram.filters import Command
 from aiogram.dispatcher.dispatcher import Dispatcher, Bot
+from aiogram.enums import ChatAction
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -83,13 +84,21 @@ def init_dispatcher(agent: SafeAgent) -> Dispatcher:
         )
 
     @dp.message()
-    async def message(message: Message) -> None:
+    async def message(message: Message, bot: Bot) -> None:
+        if not await has_session(message.from_user.id):
+            await message.answer(
+                "Пожалуйста, начните работу с командой /start.",
+                reply_markup=main_keyboard,
+            )
+            return
+        guardrail_type = await get_guardrail(message.from_user.id)
+
+        await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
         answer = await agent.ainvoke(
             message.text,
             str(message.from_user.id),
-            guardrail_type=await get_guardrail(message.from_user.id),
+            guardrail_type=guardrail_type,
         )
-        # todo Make proper sessions
         await message.answer(answer, reply_markup=main_keyboard)
 
     class LoggingMiddleware(BaseMiddleware):
